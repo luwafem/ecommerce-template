@@ -3,57 +3,82 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
-// VERIFIED FIX: Import siteInfo and navLinks from the central data index
-import { siteInfo, navLinks } from '../data'; 
+import { siteInfo, navLinks } from '../data';
 
 const Header = () => {
   const { cartItems } = useCart();
   const location = useLocation();
-  
-  const cartItemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
+
+  const cartItemCount = cartItems.reduce(
+    (total, item) => total + item.quantity,
+    0
+  );
 
   const isActive = (path) => location.pathname === path;
 
   return (
-    <header className="sticky top-0 z-50 bg-white shadow-lg">
-      <nav className="flex justify-between items-center max-w-7xl mx-auto p-4 sm:p-6">
-        
-        {/* Logo/Site Title */}
-        <Link to="/" className="text-2xl sm:text-3xl font-serif font-bold text-gray-900 hover:text-primary transition duration-200">
-          {/* Using siteInfo.name */}
-          {siteInfo.name} <span className="text-primary">👑</span>
+    <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
+      <nav className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+
+        {/* LOGO */}
+        <Link
+          to="/"
+          className="text-xl sm:text-2xl font-semibold text-gray-900 tracking-tight"
+        >
+          {siteInfo.name}
         </Link>
-        
-        {/* Navigation Links and Cart Icon */}
-        <div className="flex items-center space-x-4 sm:space-x-8 text-sm sm:text-base font-medium">
-          
-          {/* Dynamically generate main links using navLinks */}
+
+        {/* MAIN NAV (DESKTOP) */}
+        <div className="hidden md:flex items-center space-x-8 text-sm font-medium">
           {navLinks.map((link) => (
-            (link.title !== 'Cart' && link.title !== 'Checkout') && (
-              <Link 
+            link.title !== 'Cart' &&
+            link.title !== 'Checkout' && (
+              <Link
                 key={link.title}
-                to={link.path} 
-                className={`hidden md:block transition duration-200 ${
-                  isActive(link.path) 
-                    ? 'text-primary font-extrabold border-b-2 border-primary' 
-                    : 'text-gray-700 hover:text-primary'
+                to={link.path}
+                className={`pb-1 transition ${
+                  isActive(link.path)
+                    ? 'text-gray-900 border-b-2 border-gray-900'
+                    : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
                 {link.title}
               </Link>
             )
           ))}
-          
-          {/* Cart Link with Dynamic Counter */}
-          <Link to="/cart" className="relative p-2 rounded-lg hover:bg-gray-100 transition duration-200">
-            <span className="text-2xl">🛒</span>
-            
-            {/* Counter Bubble */}
-            <span className={`absolute top-0 right-0 inline-flex items-center justify-center h-5 w-5 text-xs font-bold leading-none text-gray-900 transform translate-x-1/2 -translate-y-1/2 rounded-full ${
-                cartItemCount > 0 ? 'bg-accent' : 'bg-gray-300 text-gray-600'
-            }`}>
-              {cartItemCount}
-            </span>
+        </div>
+
+        {/* RIGHT ACTIONS */}
+        <div className="flex items-center space-x-4">
+
+          {/* CART */}
+          <Link
+            to="/cart"
+            className="relative flex items-center text-gray-700 hover:text-gray-900 transition"
+            aria-label="View cart"
+          >
+            {/* Simple cart icon (Woo-like) */}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.8}
+              stroke="currentColor"
+              className="w-6 h-6"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 100 6 3 3 0 000-6zm9 0a3 3 0 100 6 3 3 0 000-6zM3.75 6.75h16.126c.821 0 1.439.77 1.25 1.57l-1.5 6a1.25 1.25 0 01-1.213.93H7.048a1.25 1.25 0 01-1.213-.93L4.136 4.5"
+              />
+            </svg>
+
+            {/* COUNT BADGE */}
+            {cartItemCount > 0 && (
+              <span className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center rounded-full bg-gray-900 text-white text-xs font-semibold">
+                {cartItemCount}
+              </span>
+            )}
           </Link>
         </div>
       </nav>

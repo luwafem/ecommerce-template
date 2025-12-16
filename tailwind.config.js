@@ -9,7 +9,7 @@ module.exports = {
       // Define a custom primary color for a modern look
       colors: {
         'primary': '#A34F5C', // Rich Rose/Mauve
-        'secondary': '#F4E9CD', // Soft Cream background
+        'secondary': '#fff', // Soft Cream background
         'accent': '#FFD700', // Gold accent
       },
       // Use modern, readable fonts

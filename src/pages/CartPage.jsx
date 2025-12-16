@@ -1,131 +1,326 @@
-// src/pages/CartPage.jsx
-
 import React from 'react';
 import { useCart } from '../context/CartContext';
 import { Link } from 'react-router-dom';
 
-// Helper to format currency (Simplified - hardcoded NGN as per global content)
+// Currency formatter (NGN)
 const formatPrice = (price) => {
-  // Use NGN explicitly since all prices are in NGN based on site content data
   return new Intl.NumberFormat('en-NG', {
     style: 'currency',
     currency: 'NGN',
     minimumFractionDigits: 2,
-  }).format(price);
+  }).format(price || 0);
 };
 
 const CartPage = () => {
-  // Access the cart state and functions
-  const { cartItems, updateQuantity, removeItem, getCartTotal } = useCart();
+  const {
+    cartItems,
+    updateQuantity,
+    removeItem,
+    getCartTotal,
+  } = useCart();
 
+  /* =====================
+     EMPTY CART
+  ===================== */
   if (cartItems.length === 0) {
     return (
-      <div className="max-w-xl mx-auto p-8 bg-white rounded-xl shadow-lg mt-16 text-center">
-        <h2 className="text-3xl font-serif font-bold text-gray-800 mb-4">Your Shopping Cart is Empty 😔</h2>
-        <p className="text-gray-600 mb-6">Looks like you haven't added any beautiful wigs yet!</p>
-        <Link 
-          to="/shop" 
-          className="inline-block px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition duration-300"
+      <div className="max-w-xl mx-auto text-center py-20 px-6">
+        <h2 className="text-3xl font-light mb-4">
+          Your cart is empty
+        </h2>
+        <p className="text-gray-500 mb-8">
+          Looks like you haven’t added anything yet.
+        </p>
+        <Link
+          to="/shop"
+          className="inline-block bg-black text-white px-8 py-3 text-sm tracking-wide"
         >
-          Go Shopping
+          CONTINUE SHOPPING
         </Link>
       </div>
     );
   }
 
+  /* =====================
+     TOTAL SAVINGS
+  ===================== */
+  const totalSavings = cartItems.reduce((sum, item) => {
+    if (!item.discountPercent) return sum;
+    return (
+      sum +
+      (item.originalPrice - item.price) *
+        item.quantity
+    );
+  }, 0);
+
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-8">
-      <h1 className="text-4xl font-serif font-bold text-gray-900 mb-8">Shopping Cart ({cartItems.length} Items)</h1>
-      
-      {/* Main Layout: Cart Items (70%) and Summary (30%) */}
-      <div className="flex flex-col lg:flex-row gap-8">
-        
-        {/* Left Side: Cart Items List */}
-        <section className="lg:w-3/4 space-y-4">
+    <div className="max-w-7xl mx-auto px-4 py-12">
+      <h1 className="text-3xl font-light tracking-wide mb-10">
+        YOUR CART
+      </h1>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+        {/* =====================
+            LEFT — CART ITEMS
+        ===================== */}
+        <div className="lg:col-span-2">
           {cartItems.map((item) => (
-            <div 
-              // Use the unique variantId if available, otherwise use product id
-              key={item.variantId || item.id} 
-              className="flex items-center p-4 bg-white rounded-xl shadow-md border border-gray-100"
+            <div
+              key={item.variantId || item.id}
+              className="border-b border-gray-200 py-6"
             >
-              
-              {/* Item Image */}
-              <Link to={`/product/${item.slug}`} className="flex-shrink-0 w-24 h-24 mr-4">
-                <img 
-                  src={item.images[0]} 
-                  alt={item.name} 
-                  className="w-full h-full object-cover rounded-lg" 
+              {/* MOBILE */}
+              <div className="flex gap-4 lg:hidden">
+                <img
+                  src={item.images[0]}
+                  alt={item.name}
+                  className="w-20 h-20 object-cover border"
                 />
-              </Link>
-              
-              {/* Item Details (Name, Code, Variants) */}
-              <div className="flex-grow min-w-0">
-                <h3 className="text-lg font-semibold text-gray-900 truncate">{item.name}</h3>
-                <p className="text-sm text-gray-500 mb-1">Code: <strong>{item.id}</strong></p>
-                {/* Displaying Variant Information */}
-                <p className="text-sm text-gray-700">
-                    <span className="font-medium">Variant:</span> {item.attributes.texture} | {item.selectedVariant?.length || item.attributes.length}" | {item.selectedVariant?.density || item.attributes.density}
-                </p>
-                {/* DISPLAY UNIT PRICE - NOW CORRECTLY USING item.price */}
-                <p className="text-md font-bold text-primary mt-1">
-                    Unit Price: {formatPrice(item.price)} 
-                </p>
+
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900">
+                    {item.name}
+                  </p>
+
+                  <p className="text-sm text-gray-500">
+                    {item.selectedVariant?.length}"
+                    {' / '}
+                    {item.selectedVariant?.density}
+                  </p>
+
+                  {item.discountPercent > 0 && (
+                    <span className="inline-block mt-1 text-xs text-red-600">
+                      {item.discountPercent}% OFF
+                    </span>
+                  )}
+
+                  <p className="mt-2 font-semibold">
+                    {item.discountPercent > 0 && (
+                      <span className="block text-xs text-gray-400 line-through">
+                        {formatPrice(
+                          item.originalPrice *
+                            item.quantity
+                        )}
+                      </span>
+                    )}
+                    {formatPrice(
+                      item.price * item.quantity
+                    )}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() =>
+                    removeItem(
+                      item.variantId || item.id
+                    )
+                  }
+                  className="text-gray-400 hover:text-black"
+                >
+                  ×
+                </button>
               </div>
 
-              {/* Item Controls (Quantity, Subtotal, Remove) */}
-              <div className="flex flex-col items-end space-y-2 ml-4 flex-shrink-0 w-36 sm:w-48">
-                
-                {/* Quantity Input */}
-                <input
-                  type="number"
-                  min="1"
-                  value={item.quantity}
-                  // Pass the unique ID (variantId or product ID) to context for accurate update
-                  onChange={(e) => updateQuantity(item.variantId || item.id, Number(e.target.value))}
-                  className="w-full py-2 px-3 border border-gray-300 rounded-lg text-center text-sm focus:ring-primary focus:border-primary"
-                />
-                
-                {/* Item Subtotal */}
-                <p className="text-lg font-extrabold text-gray-900">
-                  {/* CALCULATE SUBTOTAL: Unit Price (item.price) * Quantity */}
-                  {formatPrice(item.price * item.quantity)}
-                </p>
+              {/* MOBILE QTY */}
+              <div className="flex justify-between items-center mt-4 lg:hidden">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() =>
+                      updateQuantity(
+                        item.variantId ||
+                          item.id,
+                        Math.max(
+                          1,
+                          item.quantity - 1
+                        )
+                      )
+                    }
+                    className="border px-3 py-1"
+                  >
+                    −
+                  </button>
 
-                {/* Remove Button */}
-                <button 
-                  className="text-sm text-red-500 hover:text-red-700 transition duration-150" 
-                  // Pass the unique ID (variantId or product ID) to context for accurate removal
-                  onClick={() => removeItem(item.variantId || item.id)}
+                  <span className="w-8 text-center">
+                    {item.quantity}
+                  </span>
+
+                  <button
+                    onClick={() =>
+                      updateQuantity(
+                        item.variantId ||
+                          item.id,
+                        item.quantity + 1
+                      )
+                    }
+                    className="border px-3 py-1"
+                  >
+                    +
+                  </button>
+                </div>
+
+                <button
+                  onClick={() =>
+                    removeItem(
+                      item.variantId || item.id
+                    )
+                  }
+                  className="text-sm text-gray-500"
                 >
                   Remove
                 </button>
               </div>
+
+              {/* DESKTOP */}
+              <div className="hidden lg:flex items-center">
+                <button
+                  onClick={() =>
+                    removeItem(
+                      item.variantId || item.id
+                    )
+                  }
+                  className="text-gray-400 hover:text-black mr-4"
+                >
+                  ×
+                </button>
+
+                <img
+                  src={item.images[0]}
+                  alt={item.name}
+                  className="w-20 h-20 object-cover border mr-6"
+                />
+
+                <div className="flex-1">
+                  <p className="font-medium">
+                    {item.name}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {item.selectedVariant?.length}"
+                    {' / '}
+                    {item.selectedVariant?.density}
+                  </p>
+
+                  {item.discountPercent > 0 && (
+                    <span className="inline-block mt-1 text-xs text-red-600">
+                      {item.discountPercent}% OFF
+                    </span>
+                  )}
+                </div>
+
+                <div className="w-28 text-right text-sm">
+                  {item.discountPercent > 0 && (
+                    <div className="text-xs text-gray-400 line-through">
+                      {formatPrice(
+                        item.originalPrice
+                      )}
+                    </div>
+                  )}
+                  {formatPrice(item.price)}
+                </div>
+
+                <div className="w-28 flex justify-center gap-2">
+                  <button
+                    onClick={() =>
+                      updateQuantity(
+                        item.variantId ||
+                          item.id,
+                        Math.max(
+                          1,
+                          item.quantity - 1
+                        )
+                      )
+                    }
+                    className="border px-2"
+                  >
+                    −
+                  </button>
+
+                  <span className="w-8 text-center">
+                    {item.quantity}
+                  </span>
+
+                  <button
+                    onClick={() =>
+                      updateQuantity(
+                        item.variantId ||
+                          item.id,
+                        item.quantity + 1
+                      )
+                    }
+                    className="border px-2"
+                  >
+                    +
+                  </button>
+                </div>
+
+                <div className="w-32 text-right font-medium">
+                  {item.discountPercent > 0 && (
+                    <div className="text-xs text-gray-400 line-through">
+                      {formatPrice(
+                        item.originalPrice *
+                          item.quantity
+                      )}
+                    </div>
+                  )}
+                  {formatPrice(
+                    item.price * item.quantity
+                  )}
+                </div>
+              </div>
             </div>
           ))}
-        </section>
 
-        {/* Right Side: Cart Summary */}
-        <section className="lg:w-1/4 bg-white p-6 rounded-xl shadow-lg h-fit sticky top-6">
-          <h2 className="text-2xl font-serif font-bold text-gray-800 mb-4 border-b pb-2">Order Summary</h2>
-          
-          <div className="flex justify-between text-lg mb-4">
-            <span>Subtotal ({cartItems.length} items):</span>
-            <span className="font-semibold">{formatPrice(getCartTotal())}</span>
-          </div>
-          
-          <div className="flex justify-between text-xl font-bold text-gray-900 border-t pt-4">
-            <span>Total:</span>
-            <span>{formatPrice(getCartTotal())}</span>
-          </div>
-
-          <Link 
-            to="/checkout" 
-            className="w-full mt-6 py-3 block text-center bg-accent text-gray-900 font-bold rounded-lg shadow-md hover:bg-accent/90 transition duration-300"
+          {/* CONTINUE SHOPPING */}
+          <Link
+            to="/shop"
+            className="inline-block mt-6 text-sm text-gray-500 hover:text-black"
           >
-            Proceed to Checkout
+            ← Continue shopping
           </Link>
-        </section>
+        </div>
 
+        {/* =====================
+            RIGHT — TOTALS
+        ===================== */}
+        <aside className="border p-6 h-fit">
+          <h2 className="text-lg font-medium mb-6">
+            CART TOTALS
+          </h2>
+
+          <div className="flex justify-between text-sm mb-4">
+            <span>Subtotal</span>
+            <span>
+              {formatPrice(getCartTotal())}
+            </span>
+          </div>
+
+          {totalSavings > 0 && (
+            <div className="flex justify-between text-sm text-green-600 mb-4">
+              <span>You saved</span>
+              <span>
+                -{formatPrice(totalSavings)}
+              </span>
+            </div>
+          )}
+
+          <div className="flex justify-between text-sm mb-4">
+            <span>Shipping</span>
+            <span>Free</span>
+          </div>
+
+          <div className="flex justify-between text-lg font-semibold border-t pt-4">
+            <span>Total</span>
+            <span>
+              {formatPrice(getCartTotal())}
+            </span>
+          </div>
+
+          <Link
+            to="/checkout"
+            className="block text-center mt-6 bg-black text-white py-3 text-sm tracking-wide hover:bg-gray-800 transition"
+          >
+            PROCEED TO CHECKOUT
+          </Link>
+        </aside>
       </div>
     </div>
   );

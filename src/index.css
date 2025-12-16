@@ -13,5 +13,5 @@ body {
 
 /* Base styling for the main content area */
 .main-content {
-  @apply min-h-screen pt-4 pb-16; /* Add padding top/bottom */
+  @apply min-h-screen ; /* Add padding top/bottom */
 }

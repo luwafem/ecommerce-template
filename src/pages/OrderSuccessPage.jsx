@@ -5,43 +5,49 @@ import { Link } from 'react-router-dom';
 
 const OrderSuccessPage = () => {
   return (
-    // Central container with padding, white background, and shadow for focus
-    <div className="max-w-xl mx-auto p-8 bg-white rounded-xl shadow-2xl mt-16 text-center">
-      
-      {/* Success Heading */}
-      <h1 className="text-5xl font-serif font-bold text-green-600 mb-4">
-        🎉 Order Confirmed!
-      </h1>
-      
-      {/* Primary Message */}
-      <p className="text-lg text-gray-700 mb-8">
-        Thank you for your purchase. We have received your payment and your order is being processed.
-      </p>
-      
-      <div className="next-steps space-y-4">
-        
-        {/* Secondary Message */}
-        <p className="text-sm text-gray-500">
-          A confirmation email with your order details has been sent to your inbox.
+    <div className="max-w-3xl mx-auto px-4 py-16">
+      {/* ============================
+          Success Notice
+      ============================ */}
+      <div className="border-l-4 border-green-500 bg-green-50 p-6 mb-8 rounded-sm">
+        <h1 className="text-xl font-semibold text-gray-900 mb-1">
+          Order received
+        </h1>
+        <p className="text-sm text-gray-700">
+          Thank you. Your order has been received and is now being processed.
         </p>
-        
-        {/* Action Buttons - Stacked on mobile, full width */}
-        <div className="flex flex-col space-y-3">
-          
-          {/* Continue Shopping Button (Primary Action) */}
-          <Link 
-            to="/shop" 
-            className="w-full py-3 bg-primary text-white rounded-lg font-bold hover:bg-primary/90 transition duration-300 shadow-md"
+      </div>
+
+      {/* ============================
+          Order Details Box
+      ============================ */}
+      <div className="bg-white border border-gray-200 rounded-md p-8 space-y-6">
+        <p className="text-gray-700">
+          A confirmation email containing your order details has been sent to your
+          email address.
+        </p>
+
+        <p className="text-gray-700">
+          If you have any questions about your order, please contact our support
+          team.
+        </p>
+
+        {/* ============================
+            Actions
+        ============================ */}
+        <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
+          <Link
+            to="/shop"
+            className="inline-flex justify-center items-center px-6 py-3 bg-primary text-white text-sm font-semibold rounded-md hover:bg-primary/90 transition"
           >
-            Continue Shopping
+            Continue shopping
           </Link>
-          
-          {/* Go to Homepage Button (Secondary Action) */}
-          <Link 
-            to="/" 
-            className="w-full py-3 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition duration-300"
+
+          <Link
+            to="/"
+            className="inline-flex justify-center items-center px-6 py-3 border border-gray-300 text-sm font-semibold text-gray-700 rounded-md hover:bg-gray-50 transition"
           >
-            Go to Homepage
+            Return to home
           </Link>
         </div>
       </div>

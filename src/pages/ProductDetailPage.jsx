@@ -1,227 +1,319 @@
-// src/pages/ProductDetailPage.jsx
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { products } from '../data';
-import { useCart } from '../context/CartContext'; 
+import { useCart } from '../context/CartContext';
+import { Helmet } from 'react-helmet-async';
+import { useToast } from '../context/ToastContext';
+import ProductDetailSkeleton from '../components/ProductDetailSkeleton';
 
-// Helper to format currency (Simplified)
-const formatPrice = (price) => {
-  // Hardcode NGN as per site standard
-  return new Intl.NumberFormat('en-NG', {
+/* ======================
+   Helpers
+====================== */
+
+// Currency formatter (NGN)
+const formatPrice = (price) =>
+  new Intl.NumberFormat('en-NG', {
     style: 'currency',
     currency: 'NGN',
     minimumFractionDigits: 2,
-  }).format(price || 0); // Add (|| 0) safety check
+  }).format(price || 0);
+
+const getStockLabel = (stock) => {
+  if (stock <= 0) return 'Out of stock';
+  if (stock <= 3) return `Only ${stock} left`;
+  return 'In stock';
 };
 
+/* ======================
+   Schema Markup
+====================== */
+const ProductSchema = ({ product, unitPrice }) => {
+  const schema = {
+    "@context": "https://schema.org/",
+    "@type": "Product",
+    "name": product.name,
+    "description": product.description,
+    "sku": product.id,
+    "image": product.images[0],
+    "brand": {
+      "@type": "Brand",
+      "name": "Luxury Wigs NG"
+    },
+    "offers": {
+      "@type": "Offer",
+      "priceCurrency": "NGN",
+      "price": unitPrice,
+      "availability":
+        product.stock > 0
+          ? "https://schema.org/InStock"
+          : "https://schema.org/OutOfStock",
+      "itemCondition": "https://schema.org/NewCondition",
+    },
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": product.rating || 4.8,
+      "reviewCount": product.reviewCount || 25
+    }
+  };
+
+  return (
+    <script type="application/ld+json">
+      {JSON.stringify(schema)}
+    </script>
+  );
+};
+
+/* ======================
+   Component
+====================== */
 const ProductDetailPage = () => {
   const { slug } = useParams();
-  const { addItem } = useCart(); 
-  
-  const product = useMemo(() => products.find(p => p.slug === slug), [slug]);
+  const { addItem } = useCart();
+  const { showToast } = useToast();
+
+  const product = useMemo(
+    () => products.find((p) => p.slug === slug),
+    [slug]
+  );
 
   const [mainImage, setMainImage] = useState('');
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [quantity, setQuantity] = useState(1);
-  const [variantUnitPrice, setVariantUnitPrice] = useState(0); 
+  const [unitPrice, setUnitPrice] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // --- Logic to Calculate Price based on Variant Selection ---
-  const calculatePrice = (length, density) => {
-    if (!product || !density) return 0;
-    
-    // CRITICAL FIX: Convert basePrice to a floating point number immediately
-    // if it might have been loaded as a string (e.g., from a JSON file).
-    const basePrice = parseFloat(product.basePrice) || 0; // Use 0 as a fallback if conversion fails
-    
-    // Check for a non-numeric base price early
-    if (isNaN(basePrice) || basePrice <= 0) {
-        console.error("Base price is invalid:", product.basePrice);
-        return 0;
-    }
-    
-    const multipliers = product.priceMultipliers || {}; 
-    const densityMultiplier = multipliers[String(density)] || 1.0; 
-    
-    // Calculate Unit Price (Base price * Density Multiplier)
-    const unitPrice = basePrice * densityMultiplier;
-    
-    // Ensure the result is a number before saving
-    setVariantUnitPrice(unitPrice);
-    return unitPrice; 
+  /* ======================
+     Price Calculation
+  ====================== */
+  const calculatePrice = (density) => {
+    if (!product) return 0;
+
+    const multiplier =
+      product.priceMultipliers?.[density] || 1;
+
+    const price = product.basePrice * multiplier;
+    setUnitPrice(price);
+    return price;
   };
-  
-  // --- Initialize Variants and Main Image on Load ---
+
+  /* ======================
+     Init
+  ====================== */
   useEffect(() => {
-    if (product) {
-      if (product.images.length > 0) {
+    setIsLoading(true);
+
+    const timer = setTimeout(() => {
+      if (product) {
         setMainImage(product.images[0]);
+
+        const initialVariant = {
+          length: product.attributes.availableLengths[0],
+          density: product.attributes.availableDensities[0],
+        };
+
+        setSelectedVariant(initialVariant);
+        calculatePrice(initialVariant.density);
+        setIsLoading(false);
       }
+    }, 600);
 
-      // Set initial variant to the first available options
-      const initialLength = product.attributes.availableLengths[0];
-      const initialDensity = product.attributes.availableDensities[0];
-      
-      const initialVariant = {
-        length: initialLength,
-        density: initialDensity,
-      };
-
-      setSelectedVariant(initialVariant);
-      // Calculate and set the initial UNIT price
-      calculatePrice(initialLength, initialDensity); 
-    }
+    return () => clearTimeout(timer);
   }, [product]);
 
-
-  // Update unit price whenever variant changes
   useEffect(() => {
-    if (product && selectedVariant) {
-      calculatePrice(selectedVariant.length, selectedVariant.density);
+    if (selectedVariant) {
+      calculatePrice(selectedVariant.density);
     }
-  }, [selectedVariant]); 
+  }, [selectedVariant]);
 
-
-  if (!product) {
-    return (
-        <div className="max-w-xl mx-auto p-6 bg-white rounded-xl shadow-lg mt-10 text-center">
-            <h1 className="text-3xl font-bold text-red-500">404: Product Not Found 😢</h1>
-            <p className="mt-2 text-gray-600">The product you are looking for does not exist.</p>
-        </div>
-    );
-  }
-  
+  /* ======================
+     Handlers
+  ====================== */
   const handleVariantChange = (e) => {
     const { name, value } = e.target;
-    // Length must be converted to an integer
-    const newValue = name === 'length' ? parseInt(value) : value; 
-
-    setSelectedVariant(prev => ({ 
-      ...prev, 
-      [name]: newValue 
+    setSelectedVariant((prev) => ({
+      ...prev,
+      [name]: name === 'length' ? Number(value) : value,
     }));
   };
 
   const handleAddToCart = () => {
-    // Final validation check before adding
-    if (isNaN(variantUnitPrice) || variantUnitPrice <= 0) {
-      alert("Cannot add to cart: Invalid product price.");
+    if (product.stock <= 0) {
+      showToast('This product is out of stock', 'error');
       return;
     }
 
-    // Call the updated addItem function from CartContext.jsx
+    if (quantity > product.stock) {
+      showToast(`Only ${product.stock} item(s) available`, 'error');
+      setQuantity(product.stock);
+      return;
+    }
+
     addItem(
       product,
       selectedVariant.length,
       selectedVariant.density,
-      variantUnitPrice, // This is the UNIT price for the selected variant
+      unitPrice,
       quantity
     );
-    
-    alert(`${quantity} of ${product.name} (${selectedVariant.length}", ${selectedVariant.density}) added to cart!`);
+
+    showToast(
+      `${quantity} × ${product.name} added to cart`,
+      'success'
+    );
   };
 
-  // Calculate the total price based on the unit price and quantity
-  const totalDisplayPrice = variantUnitPrice * quantity; 
+  /* ======================
+     Loading / Not Found
+  ====================== */
+  if (isLoading) return <ProductDetailSkeleton />;
+
+  if (!product) {
+    return (
+      <div className="max-w-xl mx-auto p-6 bg-white rounded-lg shadow text-center mt-20">
+        <h2 className="text-3xl font-bold text-red-600">
+          Product not found
+        </h2>
+      </div>
+    );
+  }
+
+  const totalPrice = unitPrice * quantity;
+
+  /* ======================
+     SEO
+  ====================== */
+  const pageTitle = `${product.name} | Luxury Wigs NG`;
+  const metaDescription = product.description.slice(0, 150);
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-8">
-      
-      <div className="flex flex-col lg:flex-row gap-10 bg-white p-6 md:p-10 rounded-xl shadow-2xl">
-        
-        {/* Gallery / Image Section (50% width on desktop) */}
-        <div className="lg:w-1/2">
-          
-          {/* Main Display Image */}
-          <div className="mb-4">
-            <img 
-              src={mainImage} 
-              alt={product.name} 
-              className="w-full h-96 object-cover rounded-lg shadow-xl" 
-            />
-          </div>
+    <div className="max-w-6xl mx-auto px-4 py-10">
+      <Helmet>
+        <title>{pageTitle}</title>
+        <meta name="description" content={metaDescription} />
+      </Helmet>
 
-          {/* Thumbnail Grid */}
-          <div className="grid grid-cols-4 gap-3">
-            {product.images.map((image, index) => (
+      <ProductSchema product={product} unitPrice={unitPrice} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        {/* ======================
+            Images
+        ====================== */}
+        <div>
+          <img
+            src={mainImage}
+            alt={product.name}
+            className="w-full h-[420px] object-cover border rounded-md"
+          />
+
+          <div className="flex gap-3 mt-4">
+            {product.images.map((img, i) => (
               <img
-                key={index}
-                src={image}
-                alt={`${product.name} thumbnail ${index + 1}`}
-                onClick={() => setMainImage(image)}
-                className={`w-full h-20 object-cover rounded-md cursor-pointer transition duration-200 ${
-                  image === mainImage ? 'border-2 border-primary ring-2 ring-primary/50' : 'opacity-70 hover:opacity-100 border border-gray-200'
+                key={i}
+                src={img}
+                onClick={() => setMainImage(img)}
+                className={`w-20 h-20 object-cover border cursor-pointer ${
+                  img === mainImage
+                    ? 'border-black'
+                    : 'border-gray-300 opacity-70'
                 }`}
+                alt=""
               />
             ))}
           </div>
         </div>
 
-        {/* Product Info Section (50% width on desktop) */}
-        <div className="lg:w-1/2 pt-6 lg:pt-0">
-          <h2 className="text-4xl font-serif font-bold text-gray-900 mb-2">{product.name}</h2>
-          <p className="product-code text-sm text-gray-500 mb-4">Code: <strong>{product.id}</strong></p>
-          
-          {/* Price Display */}
-          <p className="text-5xl font-extrabold text-primary mb-2">
-            {formatPrice(variantUnitPrice)} 
-          </p>
-          <span className="text-lg text-gray-600 mb-6">/ unit (Selected Variant)</span>
-          
-          <p className="product-description text-gray-700 mb-6 border-b pt-4 pb-6">
-            {product.description}
-          </p>
-          
-          {/* Variant Selectors */}
-          <div className="variant-selectors space-y-4 mb-8">
-            {/* Length Selector */}
-            <div className="flex flex-col">
-              <label className="text-lg font-semibold text-gray-800 mb-2">Length (Current: {selectedVariant?.length || 'Select'}"): </label>
-              <select 
-                name="length" 
-                value={selectedVariant?.length || ''}
-                onChange={handleVariantChange}
-                className="p-3 border border-gray-300 rounded-lg bg-white focus:ring-primary focus:border-primary transition"
-              >
-                {product.attributes.availableLengths.map(len => (
-                  <option key={len} value={len}>{len} inches</option>
-                ))}
-              </select>
-            </div>
+        {/* ======================
+            Info
+        ====================== */}
+        <div>
+          <h1 className="text-3xl font-semibold mb-2">
+            {product.name}
+          </h1>
 
-            {/* Density Selector */}
-            <div className="flex flex-col">
-              <label className="text-lg font-semibold text-gray-800 mb-2">Density (Current: {selectedVariant?.density || 'Select'}):</label>
-              <select 
-                name="density" 
-                value={selectedVariant?.density || ''}
-                onChange={handleVariantChange}
-                className="p-3 border border-gray-300 rounded-lg bg-white focus:ring-primary focus:border-primary transition"
-              >
-                {product.attributes.availableDensities.map(den => (
-                  <option key={den} value={den}>{den}</option>
-                ))}
-              </select>
-            </div>
+          <div className="text-2xl font-bold mb-2">
+            {formatPrice(unitPrice)}
           </div>
 
-          {/* Quantity and Add to Cart */}
-          <div className="add-to-cart-controls flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
+          <p
+            className={`text-sm mb-4 ${
+              product.stock <= 0
+                ? 'text-red-600'
+                : product.stock <= 3
+                ? 'text-orange-600'
+                : 'text-green-600'
+            }`}
+          >
+            {getStockLabel(product.stock)}
+          </p>
+
+          <p className="text-gray-600 mb-6">
+            {product.description}
+          </p>
+
+          {/* Variants */}
+          <div className="space-y-4 mb-6">
+            <select
+              name="length"
+              value={selectedVariant.length}
+              onChange={handleVariantChange}
+              className="w-full border px-4 py-2"
+            >
+              {product.attributes.availableLengths.map((len) => (
+                <option key={len} value={len}>
+                  Length: {len}"
+                </option>
+              ))}
+            </select>
+
+            <select
+              name="density"
+              value={selectedVariant.density}
+              onChange={handleVariantChange}
+              className="w-full border px-4 py-2"
+            >
+              {product.attributes.availableDensities.map((den) => (
+                <option key={den} value={den}>
+                  Density: {den}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Quantity */}
+          <div className="flex items-center gap-4 mb-6">
             <input
               type="number"
               min="1"
+              max={product.stock}
               value={quantity}
-              onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-              className="w-full sm:w-20 p-3 border border-gray-300 rounded-lg text-center focus:ring-primary focus:border-primary transition"
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setQuantity(
+                  Math.min(product.stock, Math.max(1, val))
+                );
+              }}
+              className="w-20 border px-3 py-2 text-center"
             />
-            <button 
-              className="w-full sm:flex-grow py-3 bg-accent text-gray-900 rounded-lg font-bold shadow-lg hover:bg-accent/90 transition duration-300"
+
+            <button
               onClick={handleAddToCart}
-              disabled={product.stock === 0 || !selectedVariant || isNaN(variantUnitPrice) || variantUnitPrice <= 0}
+              disabled={product.stock <= 0}
+              className={`px-8 py-3 font-semibold transition ${
+                product.stock > 0
+                  ? 'bg-black text-white hover:bg-gray-800'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
             >
-              {product.stock > 0 ? `Add to Cart - ${formatPrice(totalDisplayPrice)}` : 'Sold Out'}
+              {product.stock > 0
+                ? 'ADD TO CART'
+                : 'OUT OF STOCK'}
             </button>
           </div>
+
+          <p className="text-lg font-semibold">
+            Total: {formatPrice(totalPrice)}
+          </p>
         </div>
       </div>
     </div>

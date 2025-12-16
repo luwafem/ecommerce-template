@@ -1,25 +1,19 @@
-// src/pages/CheckoutPage.jsx
-
 import React, { useState } from 'react';
 import { usePaystackPayment } from 'react-paystack';
-import { useCart } from '../context/CartContext'; 
-// FIX: Import Link along with useNavigate
-import { useNavigate, Link } from 'react-router-dom'; 
-import { checkoutContent } from '../data'; 
+import { useCart } from '../context/CartContext';
+import { useNavigate, Link } from 'react-router-dom';
+import { checkoutContent } from '../data';
 
-// IMPORTANT: Replace this with your actual Paystack Public Key!
-// Use a test key for development: pk_test_...
-const PAYSTACK_PUBLIC_KEY = 'pk_test_XXXXXXXXXXXXXXXXXXXXXXXXX'; 
+// ⚠️ Replace with your real Paystack public key
+const PAYSTACK_PUBLIC_KEY = 'pk_test_XXXXXXXXXXXXXXXXXXXXXXXXX';
 
-// Helper to format currency
-const formatPrice = (price) => {
-  // Use the currency specified in the product data (NGN)
-  return new Intl.NumberFormat('en-NG', {
+// Currency formatter
+const formatPrice = (price) =>
+  new Intl.NumberFormat('en-NG', {
     style: 'currency',
-    currency: 'NGN', 
+    currency: 'NGN',
     minimumFractionDigits: 2,
-  }).format(price);
-};
+  }).format(price || 0);
 
 const CheckoutPage = () => {
   const { cartItems, getCartTotal, clearCart } = useCart();
@@ -27,150 +21,257 @@ const CheckoutPage = () => {
 
   const [customerEmail, setCustomerEmail] = useState('');
   const [shippingAddress, setShippingAddress] = useState('');
-  
-  const SHIPPING_FEE = checkoutContent.shippingFee || 0; 
-  
+  const [processing, setProcessing] = useState(false);
+
+  /* =====================
+     PRICING
+  ===================== */
+  const SHIPPING_FEE = checkoutContent.shippingFee || 0;
   const subTotal = getCartTotal();
-  const grandTotal = subTotal + SHIPPING_FEE; 
-  
-  const amountInKobo = grandTotal * 100; 
+  const grandTotal = subTotal + SHIPPING_FEE;
+  const amountInKobo = Math.round(grandTotal * 100);
 
-  // --- 1. Secure Paystack Verification ---
-  const verifyTransaction = async (reference) => {
-    alert('Payment successful on Paystack. Verifying transaction securely...');
-    try {
-        const response = await fetch('/.netlify/functions/verify-payment', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reference, amount: grandTotal }),
-        });
+  /* =====================
+     SAVINGS
+  ===================== */
+  const totalSavings = cartItems.reduce((sum, item) => {
+    if (!item.discountPercent) return sum;
+    return (
+      sum +
+      (item.originalPrice - item.price) * item.quantity
+    );
+  }, 0);
 
-        const result = await response.json();
-
-        if (result.success) {
-            alert('Verification Success! Your order has been confirmed.');
-            clearCart();
-            navigate('/order-success');
-        } else {
-            alert(`Payment verification failed. Please contact support with reference: ${reference}`);
-        }
-    } catch (error) {
-        console.error('Verification Error:', error);
-        alert('An unexpected error occurred during order processing.');
-    }
-  };
-
-
-  // --- 2. Paystack Configuration & Execution ---
+  /* =====================
+     PAYSTACK CONFIG
+  ===================== */
   const config = {
-    reference: `TX-${(new Date()).getTime()}`, 
+    reference: `TX-${Date.now()}`,
     email: customerEmail,
     amount: amountInKobo,
     publicKey: PAYSTACK_PUBLIC_KEY,
-    currency: 'NGN', 
+    currency: 'NGN',
   };
 
   const initializePayment = usePaystackPayment(config);
 
-  const onSuccess = (response) => {
+  /* =====================
+     VERIFY TRANSACTION
+  ===================== */
+  const verifyTransaction = async (reference) => {
+    try {
+      setProcessing(true);
+
+      const response = await fetch(
+        '/.netlify/functions/verify-payment',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            reference,
+            amount: grandTotal,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.success) {
+        clearCart();
+        navigate('/order-success');
+      } else {
+        alert(
+          `Payment verification failed. Reference: ${reference}`
+        );
+      }
+    } catch (error) {
+      console.error(error);
+      alert(
+        'An error occurred while processing your order.'
+      );
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const onPaystackSuccess = (response) => {
     verifyTransaction(response.reference);
   };
 
-  const onClose = () => {
-    console.log('Payment modal closed without completing transaction.');
+  const onPaystackClose = () => {
+    setProcessing(false);
   };
-  
-  const canProceed = cartItems.length > 0 && customerEmail && shippingAddress;
 
+  const canProceed =
+    cartItems.length > 0 &&
+    customerEmail.trim() &&
+    shippingAddress.trim();
+
+  /* =====================
+     EMPTY CART
+  ===================== */
   if (cartItems.length === 0) {
-      return (
-        <div className="max-w-xl mx-auto p-6 bg-white rounded-xl shadow-lg mt-10 text-center">
-            <h2 className="text-2xl font-semibold text-red-500">🛒 Your cart is empty. Please add items to checkout.</h2>
-            {/* The line that caused the error is now fixed */}
-            <p className="mt-4"><Link to="/shop" className="text-primary hover:underline">Go to Shop</Link></p>
-        </div>
-      );
+    return (
+      <div className="max-w-xl mx-auto mt-20 bg-white border border-gray-200 rounded-md p-8 text-center">
+        <h2 className="text-2xl font-serif font-bold text-gray-800 mb-4">
+          Your cart is currently empty
+        </h2>
+        <Link
+          to="/shop"
+          className="inline-block mt-4 px-6 py-3 bg-black text-white text-sm tracking-wide"
+        >
+          Return to shop
+        </Link>
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-8">
-      <h1 className="text-4xl font-serif font-bold text-gray-900 mb-8 text-center">Secure Checkout</h1>
-      
-      <div className="flex flex-col lg:flex-row gap-8 bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-        
-        {/* Shipping Form Section */}
-        <div className="lg:w-2/3">
-          <h3 className="text-2xl font-semibold mb-6 text-primary border-b pb-2">1. Shipping Information</h3>
+    <div className="max-w-6xl mx-auto px-4 py-10">
+      <h1 className="text-3xl font-light tracking-wide mb-8">
+        CHECKOUT
+      </h1>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* =====================
+            BILLING / SHIPPING
+        ===================== */}
+        <section className="lg:col-span-2 bg-white border border-gray-200 rounded-md p-6">
+          <h2 className="text-xl font-medium mb-6">
+            Billing & Shipping Details
+          </h2>
+
           <div className="space-y-4">
+            <div>
+              <label className="block text-sm mb-1">
+                Email address *
+              </label>
               <input
                 type="email"
-                placeholder="Email Address (Required for Paystack)"
                 value={customerEmail}
-                onChange={(e) => setCustomerEmail(e.target.value)}
+                onChange={(e) =>
+                  setCustomerEmail(e.target.value)
+                }
                 required
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary transition"
+                className="w-full p-3 border border-gray-300 rounded-md"
               />
-              <textarea
-                placeholder="Shipping Address (Full street address, city, state)"
-                value={shippingAddress}
-                onChange={(e) => setShippingAddress(e.target.value)}
-                required
-                rows="4"
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary transition"
-              />
-          </div>
-        </div>
+            </div>
 
-        {/* Order Summary & Payment Button Section */}
-        <div className="lg:w-1/3 border-t lg:border-t-0 lg:border-l border-gray-200 lg:pl-6 pt-6 lg:pt-0">
-          <h3 className="text-2xl font-semibold mb-4 text-primary border-b pb-2">2. Order Summary</h3>
-          
-          <div className="space-y-2 text-lg mb-4">
-            <div className="flex justify-between text-gray-600">
-                <span>Subtotal:</span>
-                <span>{formatPrice(subTotal)}</span>
-            </div>
-            <div className="flex justify-between text-gray-600">
-                <span>Shipping Fee:</span>
-                <span>{formatPrice(SHIPPING_FEE)}</span>
-            </div>
-            <div className="flex justify-between text-2xl font-extrabold text-gray-900 border-t pt-2 mt-2">
-                <span>Grand Total:</span>
-                <span>{formatPrice(grandTotal)}</span>
+            <div>
+              <label className="block text-sm mb-1">
+                Shipping address *
+              </label>
+              <textarea
+                rows="4"
+                value={shippingAddress}
+                onChange={(e) =>
+                  setShippingAddress(e.target.value)
+                }
+                required
+                className="w-full p-3 border border-gray-300 rounded-md"
+              />
             </div>
           </div>
-          
-          <div className="mb-6 border-t border-gray-200 pt-4">
-             <img 
-               src="/images/paystack-logo.png"
-               alt="Paystack Payment" 
-               className="h-6 mx-auto mb-2"
-             />
-             <p className="text-xs text-gray-500 text-center">
-                Securely accepting Visa, Mastercard, and Bank Transfer via Paystack.
-             </p>
+        </section>
+
+        {/* =====================
+            ORDER SUMMARY
+        ===================== */}
+        <aside className="bg-white border border-gray-200 rounded-md p-6 h-fit">
+          <h2 className="text-xl font-medium mb-4">
+            Your Order
+          </h2>
+
+          {/* ITEMS */}
+          <div className="space-y-3 text-sm mb-4">
+            {cartItems.map((item) => (
+              <div
+                key={item.variantId || item.id}
+                className="flex justify-between"
+              >
+                <span className="text-gray-600">
+                  {item.name} × {item.quantity}
+                </span>
+                <span>
+                  {formatPrice(
+                    item.price * item.quantity
+                  )}
+                </span>
+              </div>
+            ))}
           </div>
-          
+
+          {/* TOTALS */}
+          <div className="space-y-3 text-sm border-t pt-4">
+            <div className="flex justify-between">
+              <span>Subtotal</span>
+              <span>{formatPrice(subTotal)}</span>
+            </div>
+
+            {totalSavings > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span>You saved</span>
+                <span>
+                  -{formatPrice(totalSavings)}
+                </span>
+              </div>
+            )}
+
+            <div className="flex justify-between">
+              <span>Shipping</span>
+              <span>{formatPrice(SHIPPING_FEE)}</span>
+            </div>
+
+            <div className="flex justify-between text-base font-semibold border-t pt-3">
+              <span>Total</span>
+              <span>{formatPrice(grandTotal)}</span>
+            </div>
+          </div>
+
+          {/* PAYMENT */}
+          <div className="mt-6 border-t pt-4 text-center">
+            <img
+              src="/images/paystack-logo.png"
+              alt="Paystack"
+              className="h-6 mx-auto mb-2"
+            />
+            <p className="text-xs text-gray-500">
+              Secure payment via Paystack
+            </p>
+          </div>
+
           <button
-            onClick={() => initializePayment(onSuccess, onClose)}
-            disabled={!canProceed}
-            className={`w-full py-4 text-white rounded-lg font-bold shadow-md transition ${
-                canProceed ? 'bg-primary hover:bg-primary/90' : 'bg-gray-400 cursor-not-allowed'
+            disabled={!canProceed || processing}
+            onClick={() =>
+              initializePayment(
+                onPaystackSuccess,
+                onPaystackClose
+              )
+            }
+            className={`w-full mt-6 py-3 rounded-md text-sm tracking-wide transition ${
+              canProceed && !processing
+                ? 'bg-black text-white hover:bg-gray-800'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             }`}
           >
-            Pay {formatPrice(grandTotal)} Securely
+            {processing
+              ? 'Processing...'
+              : 'PLACE ORDER'}
           </button>
 
           {!canProceed && (
-            <p className="mt-4 text-sm text-red-500 text-center">
-              Please fill in **email** and **shipping address** to enable payment.
+            <p className="mt-4 text-xs text-red-500 text-center">
+              Please fill in all required fields.
             </p>
           )}
-        </div>
+        </aside>
       </div>
-      <div className="mt-8 text-center text-gray-500 text-sm">
-        <p>🔒 All payments are handled securely. Your data is safe.</p>
-      </div>
+
+      <p className="mt-10 text-center text-xs text-gray-500">
+        All transactions are secure and encrypted.
+      </p>
     </div>
   );
 };

@@ -52,9 +52,9 @@ export const filterOptions = {
 // These are the images used on the HomePage hero banner
 export const heroImages = [
     // IMPORTANT: Replace these with actual image URLs
-    'https://images.unsplash.com/photo-1598460599026-b5ce91a4570b?q=80&w=2940&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 
-    'https://images.unsplash.com/photo-1590487989396-d250812e9b90?q=80&w=2940&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 
-    'https://images.unsplash.com/photo-1596464522436-075f928e08d6?q=80&w=2940&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 
+    'https://images.unsplash.com/photo-1643142311721-c36cd233fb95?q=80&w=1728&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 
+    'https://images.unsplash.com/photo-1755642961111-c148701091ae?q=80&w=1459&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 
+    'https://images.unsplash.com/photo-1755640879283-051faf11096c?q=80&w=1581&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 
 ];
 
 // --- Checkout Page Content ---
